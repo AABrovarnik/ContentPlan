@@ -8,7 +8,7 @@ const CHANNELS: Channel[] = ['Email', 'Telegram', 'ВКонтакте'];
 const TONES: Tone[] = ['Дружелюбный', 'Экспертный', 'Минималистичный'];
 
 export function MailingGenerator() {
-  const { contentPlan, setError, setNotification } = useAppStore();
+  const { contentPlan, setError, setNotification, settings } = useAppStore();
   const [topic, setTopic] = useState('');
   const [customTopic, setCustomTopic] = useState('');
   const [details, setDetails] = useState('');
@@ -42,7 +42,10 @@ export function MailingGenerator() {
     setLoading(true);
 
     try {
-      const res = await generateMailingText(selectedTopic, details, channels, tone);
+      const res = await generateMailingText(selectedTopic, details, channels, tone, {
+        aiProvider: settings.aiProvider,
+        geminiApiKey: settings.geminiApiKey,
+      });
 
       if (res.missingVars.length > 0) {
         setMissingVars(res.missingVars);
@@ -52,7 +55,10 @@ export function MailingGenerator() {
       }
 
       setResult(res.text);
-      const imgPrompt = await generateImagePrompt(selectedTopic, channels[0]);
+      const imgPrompt = await generateImagePrompt(selectedTopic, channels[0], {
+        aiProvider: settings.aiProvider,
+        geminiApiKey: settings.geminiApiKey,
+      });
       setImagePrompt(imgPrompt);
     } catch {
       setError('Ошибка генерации текста');

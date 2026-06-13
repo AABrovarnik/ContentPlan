@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { generateVideoScript } from '../services/aiService';
-import { getAvatars, getVoices, createVideo } from '../services/heygenService';
+import { getAvatars, getVoices, createVideo, getVideoStatus } from '../services/heygenService';
 import { copyToClipboard } from '../utils/copyToClipboard';
+import { downloadText } from '../utils/download';
 import type { HeygenAvatar } from '../services/heygenService';
+
+type VideoStatus = 'idle' | 'generating' | 'processing' | 'ready' | 'error';
 
 export function VideoAvatarGenerator() {
   const { contentPlan, settings, setError, setNotification } = useAppStore();
@@ -21,8 +24,9 @@ export function VideoAvatarGenerator() {
   const [selectedVoice, setSelectedVoice] = useState('');
 
   const [loading, setLoading] = useState(false);
-  const [videoLoading, setVideoLoading] = useState(false);
+  const [videoStatus, setVideoStatus] = useState<VideoStatus>('idle');
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoProgress, setVideoProgress] = useState('');
 
   const uniqueTopics = [...new Set(contentPlan.flatMap((item) => item.topics))];
 
@@ -30,12 +34,12 @@ export function VideoAvatarGenerator() {
     if (avatars.length === 0) {
       const avs = await getAvatars(settings.heygenApiKey);
       setAvatars(avs);
-      if (avs.length > 0) setSelectedAvatar(avs[0].avatar_id);
+      if (avs.length > 0 && !selectedAvatar) setSelectedAvatar(avs[0].avatar_id);
     }
     if (voices.length === 0) {
       const vs = await getVoices(settings.heygenApiKey);
       setVoices(vs);
-      if (vs.length > 0) setSelectedVoice(vs[0].voice_id);
+      if (vs.length > 0 && !selectedVoice) setSelectedVoice(vs[0].voice_id);
     }
   };
 
@@ -49,10 +53,14 @@ export function VideoAvatarGenerator() {
     setLoading(true);
     try {
       await loadAvatarsAndVoices();
-      const result = await generateVideoScript(selectedTopic, details);
+      const result = await generateVideoScript(selectedTopic, details, {
+        aiProvider: settings.aiProvider,
+        geminiApiKey: settings.geminiApiKey,
+      });
       setScript(result);
       setEditedScript(result);
       setVideoUrl(null);
+      setVideoStatus('idle');
     } catch {
       setError('Ошибка генерации сценария');
     }
@@ -67,17 +75,67 @@ export function VideoAvatarGenerator() {
   };
 
   const handleCreateVideo = async () => {
-    setVideoLoading(true);
+    if (!script.trim()) {
+      setError('Сначала сгенерируйте сценарий');
+      return;
+    }
+    setVideoStatus('generating');
+    setVideoProgress('Отправляем запрос в HeyGen...');
+    setVideoUrl(null);
+
     try {
       const res = await createVideo(settings.heygenApiKey, selectedAvatar, selectedVoice, script);
-      await new Promise((r) => setTimeout(r, 3000));
-      setVideoUrl(`https://mock-videos.example.com/${res.video_id}.mp4`);
-      setNotification('Видео готово!');
-      setTimeout(() => setNotification(null), 2000);
-    } catch {
-      setError('Ошибка создания видео');
+      setVideoStatus('processing');
+      setVideoProgress('Видео генерируется... Это может занять 1-3 минуты');
+
+      // Polling статуса видео
+      const videoId = res.video_id;
+      let attempts = 0;
+      const maxAttempts = 60; // 3 минуты с интервалом 3 сек
+
+      const poll = async () => {
+        attempts++;
+        try {
+          const status = await getVideoStatus(settings.heygenApiKey, videoId);
+
+          if (status.status === 'completed' && status.video_url) {
+            setVideoUrl(status.video_url);
+            setVideoStatus('ready');
+            setVideoProgress('');
+            setNotification('Видео готово!');
+            setTimeout(() => setNotification(null), 2000);
+            return;
+          }
+
+          if (status.status === 'failed') {
+            setVideoStatus('error');
+            setVideoProgress('Ошибка генерации видео');
+            setError('HeyGen: ошибка генерации видео');
+            return;
+          }
+
+          if (attempts >= maxAttempts) {
+            setVideoStatus('error');
+            setVideoProgress('Превышено время ожидания');
+            setError('HeyGen: видео не было сгенерировано за отведённое время');
+            return;
+          }
+
+          setVideoProgress(`Видео генерируется... (${attempts * 3} сек)`);
+          setTimeout(poll, 3000);
+        } catch {
+          setVideoStatus('error');
+          setVideoProgress('Ошибка проверки статуса');
+        }
+      };
+
+      setTimeout(poll, 3000);
+    } catch (err) {
+      setVideoStatus('error');
+      const msg = err instanceof Error ? err.message : 'Ошибка создания видео';
+      setVideoProgress(msg);
+      setError(msg);
     }
-    setVideoLoading(false);
   };
 
   const handleCopy = async () => {
@@ -86,6 +144,10 @@ export function VideoAvatarGenerator() {
       setNotification('Скопировано!');
       setTimeout(() => setNotification(null), 2000);
     }
+  };
+
+  const handleDownloadScript = () => {
+    downloadText(script, `video-script-${topic || 'custom'}.txt`);
   };
 
   return (
@@ -174,6 +236,9 @@ export function VideoAvatarGenerator() {
                 <button onClick={handleCopy} className="px-3 py-1 text-xs bg-slate-100 hover:bg-slate-200 rounded-md transition-colors">
                   Копировать
                 </button>
+                <button onClick={handleDownloadScript} className="px-3 py-1 text-xs bg-slate-100 hover:bg-slate-200 rounded-md transition-colors">
+                  Скачать
+                </button>
                 {!editing ? (
                   <button onClick={() => { setEditing(true); setEditedScript(script); }} className="px-3 py-1 text-xs bg-slate-100 hover:bg-slate-200 rounded-md transition-colors">
                     Редактировать
@@ -203,24 +268,60 @@ export function VideoAvatarGenerator() {
               </div>
             )}
           </div>
-          {script && (
+
+          {/* Статус видео */}
+          {videoStatus !== 'idle' && (
+            <div className="px-4 py-3 border-t border-slate-200">
+              {videoStatus === 'generating' && (
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-sm text-slate-600">{videoProgress}</span>
+                </div>
+              )}
+              {videoStatus === 'processing' && (
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-sm text-slate-600">{videoProgress}</span>
+                </div>
+              )}
+              {videoStatus === 'error' && (
+                <div className="text-sm text-red-600">{videoProgress}</div>
+              )}
+            </div>
+          )}
+
+          {/* Видеоплеер */}
+          {videoUrl && videoStatus === 'ready' && (
+            <div className="px-4 py-3 border-t border-slate-200">
+              <video
+                src={videoUrl}
+                controls
+                className="w-full rounded-lg bg-black"
+                style={{ maxHeight: '400px' }}
+              >
+                Ваш браузер не поддерживает видео.
+              </video>
+              <a
+                href={videoUrl}
+                download
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2 block text-center px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                Скачать .mp4
+              </a>
+            </div>
+          )}
+
+          {/* Кнопка создания видео */}
+          {script && videoStatus !== 'processing' && videoStatus !== 'generating' && (
             <div className="px-4 py-3 border-t border-slate-200">
               <button
                 onClick={handleCreateVideo}
-                disabled={videoLoading || !selectedAvatar || !selectedVoice}
+                disabled={!selectedAvatar || !selectedVoice}
                 className="w-full bg-purple-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
               >
-                {videoLoading ? 'Видео генерируется...' : 'Создать видео в HeyGen'}
-              </button>
-            </div>
-          )}
-          {videoUrl && (
-            <div className="px-4 py-3 border-t border-slate-200">
-              <div className="bg-slate-100 rounded-lg aspect-video flex items-center justify-center text-slate-500 text-sm">
-                Видеоплеер (mock)
-              </div>
-              <button className="mt-2 w-full px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
-                Скачать .mp4
+                {videoStatus === 'ready' ? 'Пересоздать видео' : 'Создать видео в HeyGen'}
               </button>
             </div>
           )}

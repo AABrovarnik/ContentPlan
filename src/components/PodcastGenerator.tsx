@@ -14,7 +14,7 @@ const EMOTIONS: Emotion[] = ['Нейтральная', 'Дружелюбная',
 const SPEEDS: Speed[] = ['0.8x', '1.0x', '1.2x'];
 
 export function PodcastGenerator() {
-  const { contentPlan, setError, setNotification } = useAppStore();
+  const { contentPlan, setError, setNotification, settings } = useAppStore();
   const [topic, setTopic] = useState('');
   const [customTopic, setCustomTopic] = useState('');
   const [details, setDetails] = useState('');
@@ -47,7 +47,10 @@ export function PodcastGenerator() {
     setError(null);
     setLoading(true);
     try {
-      const result = await generatePodcastScript(selectedTopic, details, duration, style, format);
+      const result = await generatePodcastScript(selectedTopic, details, duration, style, format, {
+        aiProvider: settings.aiProvider,
+        geminiApiKey: settings.geminiApiKey,
+      });
       setScript(result);
       setEditedScript(result);
       setAudioReady(false);

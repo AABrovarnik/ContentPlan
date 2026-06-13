@@ -20,16 +20,13 @@ interface AppState {
   setError: (msg: string | null) => void;
 }
 
-const loadSettings = (): Settings => {
-  try {
-    const raw = localStorage.getItem('ai-content-maker-settings');
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return { heygenApiKey: '', ttsProvider: 'ElevenLabs', ttsApiKey: '', imageApiKey: '' };
-};
-
-const saveSettings = (s: Settings) => {
-  localStorage.setItem('ai-content-maker-settings', JSON.stringify(s));
+const DEFAULT_SETTINGS: Settings = {
+  aiProvider: 'mock',
+  geminiApiKey: '',
+  heygenApiKey: '',
+  ttsProvider: 'ElevenLabs',
+  ttsApiKey: '',
+  imageApiKey: '',
 };
 
 export const useAppStore = create<AppState>((set) => ({
@@ -38,12 +35,11 @@ export const useAppStore = create<AppState>((set) => ({
   settingsOpen: false,
   setSettingsOpen: (open) => set({ settingsOpen: open }),
 
-  settings: loadSettings(),
-  updateSettings: (partial) => set((state) => {
-    const next = { ...state.settings, ...partial };
-    saveSettings(next);
-    return { settings: next, notification: 'Настройки сохранены' };
-  }),
+  settings: { ...DEFAULT_SETTINGS },
+  updateSettings: (partial) => set((state) => ({
+    settings: { ...state.settings, ...partial },
+    notification: 'Настройки сохранены',
+  })),
 
   contentPlan: [],
   setContentPlan: (items) => set({ contentPlan: items }),

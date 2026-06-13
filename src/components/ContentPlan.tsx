@@ -13,7 +13,7 @@ const PERIODS: { value: Period; label: string }[] = [
 ];
 
 export function ContentPlan() {
-  const { contentPlan, setContentPlan, clearContentPlan, setError, setNotification } = useAppStore();
+  const { contentPlan, setContentPlan, clearContentPlan, setError, setNotification, settings } = useAppStore();
   const [niche, setNiche] = useState('Онлайн-школа Искусственного интеллекта');
   const [details, setDetails] = useState('');
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -32,7 +32,10 @@ export function ContentPlan() {
     setError(null);
     setLoading(true);
     try {
-      const items = await generateContentPlan(niche, details, channels, period);
+      const items = await generateContentPlan(niche, details, channels, period, {
+        aiProvider: settings.aiProvider,
+        geminiApiKey: settings.geminiApiKey,
+      });
       setContentPlan(items);
     } catch {
       setError('Ошибка генерации контент-плана');

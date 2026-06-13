@@ -20,6 +20,8 @@ export type Emotion = 'Нейтральная' | 'Дружелюбная' | 'Э�
 
 export type Speed = '0.8x' | '1.0x' | '1.2x';
 
+export type AIProvider = 'gemini' | 'mock';
+
 export interface ContentPlanItem {
   id: string;
   date: string;
@@ -29,6 +31,8 @@ export interface ContentPlanItem {
 }
 
 export interface Settings {
+  aiProvider: AIProvider;
+  geminiApiKey: string;
   heygenApiKey: string;
   ttsProvider: string;
   ttsApiKey: string;
