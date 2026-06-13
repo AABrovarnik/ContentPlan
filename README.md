@@ -1,73 +1,45 @@
-# React + TypeScript + Vite
+# AI Контент Мейкер
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Веб-приложение для создания контента с помощью AI: контент-планы, рассылки, подкасты, видео с аватаром.
 
-Currently, two official plugins are available:
+## Стек
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React 18 + TypeScript
+- Vite 6
+- Tailwind CSS 4
+- Zustand
 
-## React Compiler
+## Запуск
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+git clone https://github.com/AABrovarnik/ContentPlan.git
+cd ContentPlan
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Приложение: `http://localhost:5173`
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Настройки
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+При первом запуске откройте **⚙️ Настройки** и введите API ключи:
+
+| Сервис | Где получить ключ |
+|--------|-------------------|
+| Google Gemini | [AI Studio](https://aistudio.google.com/apikey) |
+| HeyGen | [Dashboard](https://app.heygen.com/settings?nav=API) |
+
+Ключи не сохраняются — при перезапуске страницы вводятся заново.
+
+## Разделы
+
+1. **Контент-план** — генерация тем постов для Email, Telegram, ВКонтакте
+2. **Рассылки** — готовые тексты рассылок с обработкой переменных
+3. **Подкасты** — сценарии с настройкой голоса и озвучкой
+4. **Видео-аватар** — сценарий + генерация видео через HeyGen API
+
+## Режимы работы
+
+- **Mock** — без API ключей, генерация заглушками
+- **Gemini** — реальная генерация через Google Gemini 2.0 Flash
+- **HeyGen** — реальное создание видео (требуется ключ)
